@@ -1,0 +1,201 @@
+<!-- txt2pptx/frontend/index.html -->
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TeacherAssist — AI 簡報生成器</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <div class="logo-icon">▦</div>
+                    <div>
+                        <h1>TeacherAssist</h1>
+                        <span class="tagline">AI 智慧簡報生成器</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main">
+            <!-- Input Section -->
+            <section class="input-section">
+                <div class="section-header">
+                    <h2>輸入文字內容</h2>
+                    <p>貼上您的文字內容，AI 將自動擴充、排版並生成專業簡報</p>
+                </div>
+
+                <div class="input-area">
+                    <textarea
+                        id="textInput"
+                        placeholder="在此貼上您的文字內容...&#10;&#10;例如：&#10;人工智慧（AI）正在革命性地改變各行各業。從醫療診斷到自動駕駛，從金融分析到創意設計，AI 技術的應用範圍持續擴大。本報告將探討 AI 的最新發展趨勢、核心技術突破、產業應用案例，以及未來的機遇與挑戰。"
+                        rows="8"
+                    ></textarea>
+                </div>
+
+                <!-- Basic Options -->
+                <div class="options-row">
+                    <div class="option-group">
+                        <label for="numSlides">投影片數量</label>
+                        <select id="numSlides">
+                            <option value="5">5 頁</option>
+                            <option value="8" selected>8 頁</option>
+                            <option value="10">10 頁</option>
+                            <option value="12">12 頁</option>
+                            <option value="15">15 頁</option>
+                        </select>
+                    </div>
+                    <!-- Commented out to avoid confusion with template selection -->
+                    <!-- <div class="option-group">
+                        <label for="style">簡報風格</label>
+                        <select id="style">
+                            <option value="professional">專業商務</option>
+                            <option value="academic">學術報告</option>
+                            <option value="creative">創意設計</option>
+                            <option value="minimal">極簡風格</option>
+                        </select>
+                    </div> -->
+                    <div class="option-group">
+                        <label for="language">語言</label>
+                        <select id="language">
+                            <option value="zh-TW" selected>繁體中文</option>
+                            <option value="zh-CN">簡體中文</option>
+                            <option value="en">English</option>
+                            <option value="ja">日本語</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Advanced Settings -->
+                <details class="advanced-settings">
+                    <summary>
+                        <span class="advanced-icon">⚙️</span>
+                        進階設定
+                        <span class="collapse-hint">(選填)</span>
+                    </summary>
+                    <div class="advanced-content">
+                        <div class="option-group">
+                            <label for="generationMode">生成模式</label>
+                            <select id="generationMode">
+                                <option value="template" selected>模板模式（推薦）</option>
+                                <option value="code_drawn">程式碼繪製模式</option>
+                            </select>
+                            <p class="option-hint">
+                                📄 <strong>模板模式</strong>：使用預設專業模板，生成速度快、樣式統一<br>
+                                🖌️ <strong>程式碼繪製</strong>：完全程式化繪製，靈活性高、可精確控制
+                            </p>
+                        </div>
+
+                        <div class="option-group" id="templateSelector">
+                            <label for="template">選擇模板</label>
+                            <select id="template">
+                                <option value="ocean_gradient" selected>Ocean Gradient</option>
+                                <!-- 將由 JavaScript 動態載入其他模板 -->
+                            </select>
+                            <div class="upload-row">
+                                <label for="templateUpload" class="btn-upload">
+                                    <span>＋</span> 上傳自訂模板 (.pptx)
+                                </label>
+                                <input type="file" id="templateUpload" accept=".pptx" hidden>
+                                <span id="uploadStatus" class="upload-status"></span>
+                            </div>
+                        </div>
+                    </div>
+                </details>
+
+                <!-- Onboarding modal for unregistered uploaded templates -->
+                <div id="onboardingModal" class="modal hidden">
+                    <div class="modal-backdrop" onclick="closeOnboarding()"></div>
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3>⚠️ 自訂模板需要先註冊</h3>
+                            <button class="modal-close" onclick="closeOnboarding()">×</button>
+                        </div>
+                        <div class="modal-body">
+                            <p id="onboardingIntro"></p>
+                            <p>請執行以下 5 個步驟（預估 10–30 分鐘）：</p>
+                            <ol id="onboardingSteps" class="onboarding-steps"></ol>
+                            <p class="onboarding-note">
+                                完成後重新整理頁面，新模板就會出現在選單中。
+                            </p>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn-retry" onclick="closeOnboarding()">了解</button>
+                        </div>
+                    </div>
+                </div>
+
+                <button id="generateBtn" class="btn-generate" onclick="generatePresentation()">
+                    <span class="btn-icon">⚡</span>
+                    <span class="btn-text">生成簡報</span>
+                </button>
+            </section>
+
+            <!-- Progress Section -->
+            <section id="progressSection" class="progress-section hidden">
+                <div class="progress-card">
+                    <div class="spinner"></div>
+                    <div class="progress-info">
+                        <h3 id="progressTitle">正在生成簡報...</h3>
+                        <p id="progressDetail">AI 正在分析文字內容並規劃簡報結構</p>
+                    </div>
+                    <div class="progress-bar">
+                        <div id="progressFill" class="progress-fill" style="width: 0%"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Result Section -->
+            <section id="resultSection" class="result-section hidden">
+                <div class="result-card">
+                    <div class="result-header">
+                        <div class="success-icon">✓</div>
+                        <div>
+                            <h3>簡報生成完成！</h3>
+                            <p id="resultInfo"></p>
+                        </div>
+                    </div>
+
+                    <div class="result-actions">
+                        <a id="downloadBtn" class="btn-download" href="#" download>
+                            <span>⬇</span> 下載 PPTX
+                        </a>
+                        <button class="btn-retry" onclick="resetForm()">
+                            重新生成
+                        </button>
+                    </div>
+
+                    <!-- Outline Preview -->
+                    <div class="outline-preview">
+                        <h4>簡報大綱預覽</h4>
+                        <div id="outlineContent" class="outline-list"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Error Section -->
+            <section id="errorSection" class="error-section hidden">
+                <div class="error-card">
+                    <div class="error-icon">✕</div>
+                    <h3>生成失敗</h3>
+                    <p id="errorMessage"></p>
+                    <button class="btn-retry" onclick="resetForm()">重試</button>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>TeacherAssist — 基於 RAG 架構的 AI 簡報生成系統</p>
+        </footer>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

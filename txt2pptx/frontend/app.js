@@ -1,0 +1,388 @@
+// txt2pptx/frontend/app.js
+/**
+ * TXT2PPTX Frontend Application
+ */
+
+const API_BASE = '';
+
+// ── UI Elements ──
+const $ = (sel) => document.querySelector(sel);
+
+const els = {
+    textInput:       () => $('#textInput'),
+    numSlides:       () => $('#numSlides'),
+    // style:           () => $('#style'), // Commented out - style selector removed from UI
+    language:        () => $('#language'),
+    generationMode:  () => $('#generationMode'),
+    template:        () => $('#template'),
+    templateSelector: () => $('#templateSelector'),
+    templateUpload:  () => $('#templateUpload'),
+    uploadStatus:    () => $('#uploadStatus'),
+    onboardingModal: () => $('#onboardingModal'),
+    onboardingIntro: () => $('#onboardingIntro'),
+    onboardingSteps: () => $('#onboardingSteps'),
+    generateBtn:     () => $('#generateBtn'),
+    progressSection: () => $('#progressSection'),
+    progressTitle:   () => $('#progressTitle'),
+    progressDetail:  () => $('#progressDetail'),
+    progressFill:    () => $('#progressFill'),
+    resultSection:   () => $('#resultSection'),
+    resultInfo:      () => $('#resultInfo'),
+    downloadBtn:     () => $('#downloadBtn'),
+    outlineContent:  () => $('#outlineContent'),
+    errorSection:    () => $('#errorSection'),
+    errorMessage:    () => $('#errorMessage'),
+};
+
+// ── Layout Labels ──
+const LAYOUT_LABELS = {
+    title_slide:    '封面',
+    section_header: '章節',
+    bullets:        '條列',
+    two_column:     '雙欄',
+    image_left:     '左圖',
+    image_right:    '右圖',
+    key_stats:      '數據',
+    comparison:     '對比',
+    conclusion:     '結語',
+};
+
+// ── State ──
+let isGenerating = false;
+
+// ── Main Generate Function ──
+async function generatePresentation() {
+    const text = els.textInput().value.trim();
+    if (!text) {
+        els.textInput().focus();
+        els.textInput().style.borderColor = '#EF4444';
+        setTimeout(() => els.textInput().style.borderColor = '', 2000);
+        return;
+    }
+
+    if (isGenerating) return;
+    isGenerating = true;
+
+    // 根據生成模式決定 template 參數
+    const mode = els.generationMode().value;
+    const template = mode === 'code_drawn' ? 'code_drawn' : els.template().value;
+
+    // Prepare request
+    const request = {
+        text: text,
+        num_slides: parseInt(els.numSlides().value),
+        style: 'professional', // Default style (style selector commented out to avoid confusion)
+        language: els.language().value,
+        template: template,
+    };
+
+    // Update UI
+    showProgress();
+    updateProgress(10, '正在分析文字內容...', 'AI 正在理解您的文字結構');
+
+    try {
+        // Simulate progress while waiting
+        const progressInterval = simulateProgress();
+
+        // Call API
+        const response = await fetch(`${API_BASE}/api/generate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(request),
+        });
+
+        clearInterval(progressInterval);
+
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({ detail: '未知錯誤' }));
+            throw new Error(err.detail || `HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        if (data.success) {
+            updateProgress(100, '生成完成！', '正在準備下載...');
+            await sleep(500);
+            showResult(data);
+        } else {
+            throw new Error(data.message || '生成失敗');
+        }
+
+    } catch (error) {
+        showError(error.message);
+    } finally {
+        isGenerating = false;
+    }
+}
+
+// ── Progress Simulation ──
+function simulateProgress() {
+    let progress = 10;
+    const steps = [
+        [25, '正在擴充內容...', 'AI 正在根據您的文字生成完整內容'],
+        [45, '正在規劃簡報結構...', '分配內容到各個投影片'],
+        [65, '正在設計版面佈局...', '選擇最適合的版面配置'],
+        [80, '正在生成 PPTX...', '套用設計主題並渲染投影片'],
+        [90, '正在最終檢查...', '確認排版與內容完整性'],
+    ];
+    let stepIdx = 0;
+
+    return setInterval(() => {
+        if (stepIdx < steps.length) {
+            const [p, title, detail] = steps[stepIdx];
+            if (progress < p) {
+                progress += 2;
+                updateProgress(progress, title, detail);
+            } else {
+                stepIdx++;
+            }
+        }
+    }, 400);
+}
+
+// ── UI State Management ──
+function showProgress() {
+    els.progressSection().classList.remove('hidden');
+    els.resultSection().classList.add('hidden');
+    els.errorSection().classList.add('hidden');
+    els.generateBtn().disabled = true;
+    els.generateBtn().querySelector('.btn-text').textContent = '生成中...';
+}
+
+function updateProgress(percent, title, detail) {
+    els.progressFill().style.width = `${percent}%`;
+    if (title) els.progressTitle().textContent = title;
+    if (detail) els.progressDetail().textContent = detail;
+}
+
+function showResult(data) {
+    els.progressSection().classList.add('hidden');
+    els.resultSection().classList.remove('hidden');
+
+    // 移除舊的降級警告（如果有）
+    const oldWarning = $('.fallback-warning');
+    if (oldWarning) {
+        oldWarning.remove();
+    }
+
+    // 若發生降級，顯示警告訊息
+    if (data.fallback_used) {
+        const warningDiv = document.createElement('div');
+        warningDiv.className = 'fallback-warning';
+        warningDiv.innerHTML = `
+            ⚠️ <strong>注意</strong>:
+            原選模板不可用，已自動切換為經典繪製模式。
+        `;
+        const resultCard = els.resultSection().querySelector('.result-card');
+        resultCard.insertBefore(warningDiv, resultCard.firstChild);
+    }
+
+    // Download link
+    els.downloadBtn().href = `${API_BASE}/api/download/${data.filename}`;
+    els.downloadBtn().download = data.filename;
+
+    // Info
+    const numSlides = data.outline?.slides?.length || '?';
+    const templateInfo = data.template_used ? ` — 使用 ${data.template_used}` : '';
+    els.resultInfo().textContent = `${data.outline?.title || '簡報'} — ${numSlides} 頁投影片${templateInfo}`;
+
+    // Outline preview
+    renderOutline(data.outline);
+
+    // Reset button
+    els.generateBtn().disabled = false;
+    els.generateBtn().querySelector('.btn-text').textContent = '生成簡報';
+}
+
+function showError(message) {
+    els.progressSection().classList.add('hidden');
+    els.errorSection().classList.remove('hidden');
+    els.errorMessage().textContent = message;
+    els.generateBtn().disabled = false;
+    els.generateBtn().querySelector('.btn-text').textContent = '生成簡報';
+}
+
+function resetForm() {
+    els.progressSection().classList.add('hidden');
+    els.resultSection().classList.add('hidden');
+    els.errorSection().classList.add('hidden');
+    els.generateBtn().disabled = false;
+    els.generateBtn().querySelector('.btn-text').textContent = '生成簡報';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── Render Outline Preview ──
+function renderOutline(outline) {
+    if (!outline?.slides) return;
+
+    const container = els.outlineContent();
+    container.innerHTML = '';
+
+    outline.slides.forEach((slide, idx) => {
+        const item = document.createElement('div');
+        item.className = 'outline-item';
+
+        const layoutLabel = LAYOUT_LABELS[slide.layout] || slide.layout;
+
+        item.innerHTML = `
+            <span class="outline-num">${idx + 1}</span>
+            <span class="outline-title">${escapeHtml(slide.title)}</span>
+            <span class="outline-layout">${layoutLabel}</span>
+        `;
+
+        container.appendChild(item);
+    });
+}
+
+// ── Utilities ──
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// ── Keyboard shortcut ──
+document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        generatePresentation();
+    }
+});
+
+// ── Dynamic Template Loading ──
+async function loadAvailableTemplates(selectId) {
+    try {
+        const response = await fetch('/api/templates');
+        const data = await response.json();
+
+        const templateSelect = els.template();
+        templateSelect.innerHTML = '';
+
+        // 只顯示真實模板（is_template: true）
+        const templates = data.templates.filter(t => t.is_template);
+
+        templates.forEach(t => {
+            const option = document.createElement('option');
+            option.value = t.id;
+            // 未註冊策略類別的模板加註標記
+            const suffix = t.is_registered === false ? ' ⚠ 未註冊' : '';
+            option.textContent = t.name + suffix;
+            // 未註冊或檔案不可用都禁用
+            option.disabled = !t.available || t.is_registered === false;
+            if (t.id === (selectId || 'ocean_gradient')) {
+                option.selected = true;
+            }
+            templateSelect.appendChild(option);
+        });
+
+    } catch (error) {
+        console.error('載入模板列表失敗:', error);
+    }
+}
+
+// ── Custom Template Upload ──
+async function handleTemplateUpload(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const status = els.uploadStatus();
+    status.textContent = '上傳中…';
+    status.className = 'upload-status pending';
+
+    try {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await fetch('/api/upload-template', {
+            method: 'POST',
+            body: formData,
+        });
+
+        const data = await response.json();
+
+        if (!response.ok && response.status !== 202) {
+            throw new Error(data.detail || `HTTP ${response.status}`);
+        }
+
+        if (data.registered) {
+            // Template was already registered — refresh list and select it
+            status.textContent = `✓ 已就緒：${data.template_id}`;
+            status.className = 'upload-status success';
+            await loadAvailableTemplates(data.template_id);
+        } else {
+            // Template uploaded but unregistered — show 5-step warning
+            status.textContent = `⚠ 需要註冊：${data.template_id}`;
+            status.className = 'upload-status warning';
+            showOnboardingModal(file.name, data.message, data.steps);
+            // Refresh list — new file will appear but be disabled until registered
+            await loadAvailableTemplates();
+        }
+    } catch (error) {
+        status.textContent = `✗ 上傳失敗：${error.message}`;
+        status.className = 'upload-status error';
+    } finally {
+        // Reset input so the same file can be re-uploaded
+        event.target.value = '';
+    }
+}
+
+function showOnboardingModal(filename, message, steps) {
+    els.onboardingIntro().textContent =
+        `您上傳的 "${filename}" 尚未註冊為支援的模板。`;
+
+    const ol = els.onboardingSteps();
+    ol.innerHTML = '';
+    (steps || []).forEach(step => {
+        const li = document.createElement('li');
+        const desc = document.createElement('div');
+        desc.className = 'step-desc';
+        desc.textContent = step.desc;
+        const code = document.createElement('pre');
+        code.className = 'step-cmd';
+        code.textContent = step.cmd;
+        li.appendChild(desc);
+        li.appendChild(code);
+        ol.appendChild(li);
+    });
+
+    els.onboardingModal().classList.remove('hidden');
+}
+
+function closeOnboarding() {
+    els.onboardingModal().classList.add('hidden');
+}
+
+// ── Advanced Settings Interaction ──
+function setupAdvancedSettings() {
+    const modeSelect = els.generationMode();
+    const templateSelector = els.templateSelector();
+
+    modeSelect.addEventListener('change', (e) => {
+        if (e.target.value === 'code_drawn') {
+            // 隱藏模板選單
+            templateSelector.classList.add('hidden');
+        } else {
+            // 顯示模板選單
+            templateSelector.classList.remove('hidden');
+            // 如果當前選擇是 code_drawn，恢復為第一個可用模板
+            if (els.template().value === 'code_drawn') {
+                els.template().selectedIndex = 0;
+            }
+        }
+    });
+}
+
+// ── Page Initialization ──
+document.addEventListener('DOMContentLoaded', async () => {
+    await loadAvailableTemplates();
+    setupAdvancedSettings();
+
+    // Hook up the file input
+    const uploadInput = els.templateUpload();
+    if (uploadInput) {
+        uploadInput.addEventListener('change', handleTemplateUpload);
+    }
+});
