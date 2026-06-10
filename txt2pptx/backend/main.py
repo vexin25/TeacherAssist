@@ -1,5 +1,4 @@
 """TXT2PPTX FastAPI Application."""
-import os
 import uuid
 import logging
 from pathlib import Path
@@ -134,7 +133,7 @@ async def list_templates():
             try:
                 # 嘗試載入模板驗證可用性
                 from pptx import Presentation
-                test_prs = Presentation(str(template_file))
+                Presentation(str(template_file))
                 available = True
             except Exception as e:
                 logger.warning(f"模板 {template_file.name} 不可用: {e}")

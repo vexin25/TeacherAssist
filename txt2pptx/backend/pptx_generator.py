@@ -1,9 +1,8 @@
 # txt2pptx/backend/pptx_generator.py
 """PPTX generator with template-based layouts."""
 import io
-import math
 from pptx import Presentation
-from pptx.util import Inches, Pt, Emu
+from pptx.util import Inches, Pt
 from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
 from pptx.enum.shapes import MSO_SHAPE
@@ -88,10 +87,9 @@ def _add_bullets(slide, items: list[str], x, y, w, h, *,
 
         # Add bullet marker
         pPr = p._pPr
-        if pPr is None:
-            from pptx.oxml.ns import qn
-            pPr = p._p.get_or_add_pPr()
         from pptx.oxml.ns import qn
+        if pPr is None:
+            pPr = p._p.get_or_add_pPr()
         buChar = pPr.makeelement(qn('a:buChar'), {'char': '●'})
         # Remove existing buNone if present
         for child in list(pPr):
@@ -123,7 +121,7 @@ def _add_image_placeholder(slide, x, y, w, h, label="圖片區域"):
 
     # Add icon-like inner shape
     cx, cy = x + w/2 - 0.3, y + h/2 - 0.3
-    icon = _add_shape(slide, MSO_SHAPE.RECTANGLE, cx, cy, 0.6, 0.6,
+    _add_shape(slide, MSO_SHAPE.RECTANGLE, cx, cy, 0.6, 0.6,
                       RGBColor(0xCB, 0xD5, 0xE1))
 
     # Add label

@@ -342,12 +342,12 @@ async def generate_outline(request: GenerateRequest) -> PresentationOutline:
                 logger.error(f"Final error stack trace:\n{traceback.format_exc()}")
 
                 # 記錄性能指標
-                logger.info(f"📊 METRIC: all_retries_failed=true")
+                logger.info("📊 METRIC: all_retries_failed=true")
 
     # 所有重試都失敗，使用 demo mode
     logger.warning(
         f"⚠️ Falling back to demo mode after {MAX_RETRIES} failed attempts"
     )
-    logger.info(f"📊 METRIC: demo_fallback=true")
+    logger.info("📊 METRIC: demo_fallback=true")
 
     return generate_outline_demo(request)

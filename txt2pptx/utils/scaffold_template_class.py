@@ -400,8 +400,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     print()
     print("Next steps:")
     print(f"  1. Edit {out} — resolve any TODO comments")
-    print(f"  2. Add the class to backend/templates/__init__.py STRATEGIES dict")
-    print(f"  3. python -m txt2pptx.utils.validate_template_class <ClassName>")
+    print("  2. Add the class to backend/templates/__init__.py STRATEGIES dict")
+    print("  3. python -m txt2pptx.utils.validate_template_class <ClassName>")
     return 0
 
 
